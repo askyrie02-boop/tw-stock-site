@@ -1,0 +1,125 @@
+# 台股盤中監控（GitHub Actions）
+#
+# ⚠️ 這個檔案是從私人 repo 的 intraday/workflow.yml 自動發布過來的，請不要在這裡修改（下次網站更新會被蓋掉）。
+#
+# 做什麼？開盤時（09:00～13:30）每隔約 1.5 分鐘把全部上市櫃普通股掃一次：
+#   ・到了設定的時間（預設每小時，最後一則是收盤）推送一則盤中狀況到 Telegram（附圖）
+#   ・發現異常的大筆資金進出，馬上通知
+# 為什麼放在這個公開的 repo？盤中要連續執行 4.5 小時，私人 repo 每月的免費額度不夠；公開 repo 的執行時間不用錢。
+# 這裡只有監控程式與公開行情算出來的數字，Telegram 金鑰放在這個 repo 的 Secrets（不會公開）。
+#
+# 什麼時候會啟動？
+#   1. 每個交易日開盤前，由 Claude 的排程任務啟動（GitHub 自己的排程常常延遲好幾個小時）
+#   2. 網站每次更新（push）：如果現在是盤中時間而且還沒有在執行，就會啟動；其他時間馬上結束
+#   3. GitHub 排程 08:37（備援）
+#   4. 到 Actions 頁面按「Run workflow」：勾「測試」會馬上掃一次、送一則測試通知
+
+name: 盤中監控
+
+on:
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "測試：馬上掃一次並送一則測試通知（不管現在幾點）"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+  schedule:
+    - cron: "37 0 * * 1-5"     # 台灣 08:37（GitHub 用 UTC）
+
+permissions:
+  contents: read
+
+concurrency:
+  group: intraday          # 同時只跑一個；後來的會等前一個結束（那時通常已經收盤，會馬上結束）
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 320
+    env:
+      TZ: Asia/Taipei
+      PYTHONIOENCODING: utf-8
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - name: 現在要不要執行
+        id: gate
+        env:
+          TEST: ${{ inputs.test }}
+        run: |
+          # 週一到週五 08:30～13:30 才執行（手動勾「測試」不受限）；其他時間馬上結束，不安裝任何東西
+          now=$((10#$(date +%H%M))); dow=$(date +%u)
+          if [ "$TEST" = "true" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; echo "args=--test" >> "$GITHUB_OUTPUT"
+          elif [ "$dow" -le 5 ] && [ "$now" -ge 830 ] && [ "$now" -le 1330 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "現在（$(date '+%m/%d %H:%M')）不是盤中時間，不執行"
+          fi
+
+      - name: 下載程式
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v5
+
+      - name: 安裝 Python
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: intraday/requirements.txt
+
+      - name: 安裝中文字型（圖表用）
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk > /dev/null
+          rm -rf ~/.cache/matplotlib
+
+      - name: 安裝套件
+        if: steps.gate.outputs.run == 'true'
+        run: pip install -r intraday/requirements.txt
+
+      - name: 取回前一天的盤中紀錄（用來比較「昨天同一時間」）
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: intraday_data
+          key: intraday-data-${{ github.run_id }}
+          restore-keys: intraday-data-
+
+      - name: 盤中監控
+        id: run
+        if: steps.gate.outputs.run == 'true'
+        run: python -m intraday.run ${{ steps.gate.outputs.args }}
+
+      - name: 保存今天的盤中紀錄
+        if: always() && steps.gate.outputs.run == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: intraday_data
+          key: intraday-data-${{ github.run_id }}
+
+      - name: 上傳圖表（可在 Actions 頁面下載，保留 7 天）
+        if: always() && steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: intraday-charts
+          path: intraday_output/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: 安裝或啟動失敗時發送通知
+        # 程式自己失敗時會自己通知；這裡處理的是程式還沒跑起來就失敗（安裝套件失敗、被取消、逾時）
+        if: (failure() || cancelled()) && steps.gate.outputs.run == 'true' && steps.run.conclusion != 'failure'
+        run: |
+          [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || exit 0
+          text=$(printf '❌ 盤中監控沒有正常執行 %s\n原因：執行環境安裝失敗、被取消或逾時\n查看：%s' "$(date '+%m/%d %H:%M')" \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
+          for chat in $(echo "$TELEGRAM_CHAT_ID" | tr ',' ' '); do
+            curl -sS -o /dev/null -m 20 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              --data-urlencode "chat_id=${chat}" --data-urlencode "text=${text}" || true
+          done

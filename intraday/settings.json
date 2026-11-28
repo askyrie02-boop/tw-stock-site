@@ -1,0 +1,32 @@
+{
+ "times": [
+  "09:30",
+  "10:30",
+  "11:30",
+  "12:30",
+  "13:30"
+ ],
+ "interval": 60,
+ "large_top": 150,
+ "group_top": 5,
+ "group_floor": 1.0,
+ "alerts": true,
+ "window": 5,
+ "warmup": 10,
+ "stock_value": 3.0,
+ "stock_ratio": 4.0,
+ "stock_move": 1.0,
+ "group_value": 10.0,
+ "group_ratio": 3.0,
+ "group_move": 0.5,
+ "index_move": 0.5,
+ "cooldown": 30,
+ "live": true,
+ "live_window": 5,
+ "live_move": 2.0,
+ "live_floor": 0.1,
+ "big_order": 500.0,
+ "burst_ratio": 5.0,
+ "burst_floor": 0.3,
+ "live_cooldown": 10
+}

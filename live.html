@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#161a20">
+<title>盤中即時｜台股每日報告</title>
+<link rel="stylesheet" href="style.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="brand" href="index.html">📊 台股每日報告</a><nav><a href="index.html">盤勢解析</a><a href="live.html" class="on">盤中即時</a><a href="global.html">國際市場</a><a href="news.html">新聞公告</a><a href="movers.html">強弱勢股</a><a href="groups.html">族群個股</a><a href="daytrade.html">當沖選股</a><a href="track.html">個股追蹤</a><a href="screen.html">每日選股</a><a href="analog.html">範本選股</a><a href="margin.html">融資融券</a><a href="holders.html">大戶週報</a><a href="market/index.html">歷史盤勢</a></nav></div></header>
+<main class="wrap">
+<h1>⚡ 盤中即時</h1><div id="live" data-repo="askyrie02-boop/tw-stock-site"><p class="note" id="live-status">讀取中…</p><div class="tiles" id="live-tiles"></div><h2>個股異常與大單（最新的在最上面）</h2><div class="segs" id="live-tabs"><button type="button" class="seg" data-kind="all">全部<span>0</span></button><button type="button" class="seg" data-kind="up">🚀 異常拉抬<span>0</span></button><button type="button" class="seg" data-kind="down">💥 異常下跌<span>0</span></button><button type="button" class="seg" data-kind="buy">🟥 大單敲進<span>0</span></button><button type="button" class="seg" data-kind="sell">🟩 大單敲出<span>0</span></button><button type="button" class="seg" data-kind="burst">🔥 瞬間爆量<span>0</span></button></div><div id="live-events"></div><h2>族群金流（近 15 分鐘）</h2><div id="live-groups"></div><h2>個股金流（近 5 分鐘成交最多）</h2><div id="live-stocks"></div><hr><p class="note">說明：資料來自證交所即時行情，盤中監控約每 1 分鐘掃一次全部上市櫃普通股，整理後推到網站，網頁每 90 秒自動更新，所以會比盤中晚約 1～2 分鐘。異常拉抬／下跌＝最近 5 分鐘漲跌超過 2%（成交至少 0.1 億）；大單＝一筆成交 500 萬元以上，成交價在賣價（或偏高）算往上敲進、在買價（或偏低）算往下敲出；瞬間爆量＝約 1 分鐘的成交金額是平常的 5 倍以上（至少 0.3 億）。證交所每次只給「最近一筆成交」，兩次掃描之間的其他成交看不到，所以大單是抽樣，不是全部。門檻在 config.yaml「盤中監控 → 即時網站」。只是盤中描述，不是買賣建議。</p></div>
+</main>
+<footer class="wrap">網站更新：2026-11-28 20:54（台灣時間）｜資料來源：證交所、櫃買中心、期交所、集保結算所、公開資訊觀測站；
+國際市場：Yahoo Finance、美國財政部、FRED；新聞：工商時報、經濟日報、IEK 產業情報網（Google 新聞搜尋）<br>
+※ 依固定規則整理的盤後資料，僅供參考，不構成投資建議</footer>
+</body>
+</html>

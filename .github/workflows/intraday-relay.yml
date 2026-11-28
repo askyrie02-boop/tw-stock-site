@@ -1,0 +1,48 @@
+# 盤中監控的接力啟動（GitHub Actions）
+#
+# ⚠️ 這個檔案是從私人 repo 的 intraday/relay.yml 自動發布過來的，請不要在這裡修改（下次網站更新會被蓋掉）。
+#
+# 為什麼要有這個？GitHub 自己的排程常常延遲 7～8 小時，08:37 的排程到下午才跑，盤中監控就錯過了。
+# 這個工作先「等」，時間到了（每個交易日 08:40）直接啟動盤中監控（手動啟動不會延遲）；
+# GitHub 一個工作最多 6 小時，所以每一棒最多等 5.5 小時，還沒到就啟動下一棒接著等。
+# 網站每次更新（push）都會重新開始一條接力，同時只保留最新的一條。
+# 只用 GitHub 自動提供的 GITHUB_TOKEN（只能操作這個 repo 的 Actions）。公開 repo 的執行時間不用錢。
+
+name: 盤中監控接力
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      handled:
+        description: "已經處理過的日期（YYYY-MM-DD，接力自己傳，不用填）"
+        required: false
+        default: ""
+
+permissions:
+  actions: write          # 啟動盤中監控與下一棒
+  contents: read
+
+concurrency:
+  group: intraday-relay   # 同時只留一條接力：新的一棒開始時取消舊的
+  cancel-in-progress: true
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      TZ: Asia/Taipei
+      PYTHONIOENCODING: utf-8
+    steps:
+      - name: 下載程式
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: intraday
+
+      - name: 等到開盤前再啟動盤中監控
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HANDLED: ${{ inputs.handled }}
+        run: python3 -m intraday.relay --handled "$HANDLED"
